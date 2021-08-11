@@ -50,17 +50,14 @@ public class ClientHandler {
                     // цикл работы
                     while (authenticated) {
                         String str = in.readUTF();
-                        System.out.println("server read " + str);
-                        if (str.startsWith("/w ")) {
-                            String[] token = str.split("\\s+", 3);
-                            String msg = token.length==3?token[2]:""; // Если пользователь забыл набрать сообщение
-                            server.privateMsg(this, token[1], msg);
-                        } else if (str.equals("/end")) {
+
+                        if (str.equals("/end")) {
                             sendMsg("/end");
                             System.out.println("Client disconnected");
                             break;
-                        } else
-                            server.broadcastMsg(this, str);
+                        }
+
+                        server.broadcastMsg(this, str);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
