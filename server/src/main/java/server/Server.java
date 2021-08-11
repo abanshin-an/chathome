@@ -44,14 +44,6 @@ public class Server {
         }
     }
 
-    public void privateMsg(ClientHandler sender, String nickName, String msg){
-        String message = String.format("[ %s -> %s ]: %s", sender.getNickname(), nickName, msg);
-        for (ClientHandler c : clients) {
-            if (c.getNickname().equals(nickName)||(c==sender))
-                c.sendMsg(message);
-        }
-    }
-
     public void subscribe(ClientHandler clientHandler){
         clients.add(clientHandler);
     }
