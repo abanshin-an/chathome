@@ -7,7 +7,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 
 public class ClientHandler {
-    public static final int SO_TIMEOUT = 5000;//120000;
+    public static final int SO_TIMEOUT = 120000;
     Socket socket;
     Server server;
     DataInputStream in;
