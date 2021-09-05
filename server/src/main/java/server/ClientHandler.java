@@ -4,8 +4,10 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 public class ClientHandler {
+    public static final int SO_TIMEOUT = 120000;
     Socket socket;
     Server server;
     DataInputStream in;
@@ -25,7 +27,7 @@ public class ClientHandler {
 
             new Thread(() -> {
                 try {
-                    //socket.setSoTimeout(0);
+                    socket.setSoTimeout(SO_TIMEOUT);
                     // цикл аутентификации
                     while (true) {
                         String str = in.readUTF();
@@ -69,6 +71,7 @@ public class ClientHandler {
                             }
                         }
                     }
+                    socket.setSoTimeout(0);
                     // цикл работы
                     while (authenticated) {
                         String str = in.readUTF();
@@ -91,7 +94,11 @@ public class ClientHandler {
                             server.broadcastMsg(this, str);
                         }
                     }
-                // SocketTimeoutException
+                    // SocketTimeoutException
+                } catch (SocketTimeoutException e)
+                {
+                    System.out.println("disconnect by timeout");
+                    sendMsg("/end");
                 } catch (IOException e) {
                     e.printStackTrace();
                 } finally {

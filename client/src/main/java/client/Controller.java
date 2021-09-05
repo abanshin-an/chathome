@@ -94,6 +94,7 @@ public class Controller implements Initializable {
     private void connect() {
         try {
             socket = new Socket(IP_ADDRESS, PORT);
+            System.out.println("client open socket");
             in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
 
