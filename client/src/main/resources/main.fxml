@@ -31,6 +31,7 @@
     <HBox fx:id="msgPanel" visible="false" managed="false">
         <TextField fx:id="textField" HBox.hgrow="ALWAYS" promptText="input message" onAction="#sendMsg"/>
         <Button text="Send" onAction="#sendMsg"/>
+        <Button text="Nick" onAction="#showRegWindow" />
     </HBox>
 
 </VBox>

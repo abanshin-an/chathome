@@ -7,33 +7,25 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Server {
-    private ServerSocket server;
-    private Socket socket;
-    private final int PORT = 8189;
+    private static final int PORT = 8189;
 
-    private List<ClientHandler> clients;
-    private AuthService authService;
+    private final List<ClientHandler> clients;
+    private final AuthService authService;
 
-    public Server() {
+    public Server(AuthService authService) {
+        Socket socket;
         clients = new CopyOnWriteArrayList<>();
-        authService = new SimpleAuthService();
-        try {
-            server = new ServerSocket(PORT);
+        this.authService = authService;
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server started!");
 
-            while (true) {
-                socket = server.accept();
+            while (!Thread.currentThread().isInterrupted()) {
+                socket = serverSocket.accept();
                 System.out.println("Client connected");
                 new ClientHandler(socket, this);
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                server.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
