@@ -6,10 +6,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.ListView;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -22,6 +19,8 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Controller implements Initializable {
     @FXML
@@ -44,6 +43,8 @@ public class Controller implements Initializable {
     private static final String IP_ADDRESS = "localhost";
     private DataOutputStream out;
 
+    private final History history= new History();
+
     public boolean isAuthenticated() {
         return authenticated;
     }
@@ -55,9 +56,44 @@ public class Controller implements Initializable {
     }
 
     private String nickname;
+    private String login;
     private Stage stage;
     private Stage regStage;
     private RegController regController;
+
+    private static final int  MAX_LINES = 100 ;
+
+    private void setupTextArea() {
+
+        textArea.setWrapText(false);
+        textArea.setEditable(false);
+
+        Pattern newline = Pattern.compile("\n");
+        textArea.setTextFormatter(new TextFormatter<>(change ->  {
+
+            String newText = change.getControlNewText();
+
+            // count lines in proposed new text:
+            Matcher matcher = newline.matcher(newText);
+            int lines = 1 ;
+            while (matcher.find()) lines++;
+
+            // if there aren't too many lines just return the changed unmodified:
+            if (lines <= MAX_LINES) return change ;
+
+            // drop first (lines - 100) lines and replace all text
+            // (there's no other way AFAIK to drop text at the beginning
+            // and replace it at the end):
+            int linesToDrop = lines - MAX_LINES ;
+            int index = 0 ;
+            for (int i = 0 ; i < linesToDrop ; i++) {
+                index = newText.indexOf('\n', index) ;
+            }
+            change.setRange(0, change.getControlText().length());
+            change.setText(newText.substring(index+1));
+            return change  ;
+        }));
+    }
 
     public void setAuthenticated(boolean authenticated) {
         this.authenticated = authenticated;
@@ -70,21 +106,28 @@ public class Controller implements Initializable {
 
         if (!authenticated) {
             nickname = "";
+            login = "";
         }
         setTitle(nickname);
         textArea.clear();
+        if (!login.equals("")) {
+            textArea.setText(history.load(login));
+            if (textArea.getText().length()>0)
+                textArea.appendText("\n");
+        }
     }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         Platform.runLater(() -> {
             stage = (Stage) textField.getScene().getWindow();
+            setupTextArea();
             stage.setOnCloseRequest(event -> {
                 System.out.println("bye");
                 if (socket != null && !socket.isClosed()) {
                     try {
                         out.writeUTF("/end");
-                    } catch (IOException e) {
+                   } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
@@ -151,6 +194,7 @@ public class Controller implements Initializable {
                 } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
+                    history.save(textArea.getText());
                     System.out.println("disconnected");
                     setAuthenticated(false);
                     try {
@@ -184,7 +228,7 @@ public class Controller implements Initializable {
             connect();
         }
 
-        String login = loginField.getText().trim();
+        login = loginField.getText().trim();
         String password = passwordField.getText().trim();
         String msg = String.format("/auth %s %s", login, password);
 
@@ -192,7 +236,7 @@ public class Controller implements Initializable {
             out.writeUTF(msg);
             passwordField.clear();
         }catch (java.net.ConnectException e1){
-            textArea.appendText( "Ошибка подключения к серверу%n");
+            textArea.appendText( "Ошибка подключения к серверу\n");
             e1.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
