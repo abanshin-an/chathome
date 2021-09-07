@@ -1,10 +1,11 @@
 package client;
 
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.stage.Stage;
 
 public class RegController {
     @FXML
@@ -15,7 +16,10 @@ public class RegController {
     private TextField nicknameField;
     @FXML
     private TextArea textArea;
+    @FXML
+    private Button regButton;
 
+    @FXML private Button closeButton;
     private Controller controller;
 
     public void setController(Controller controller) {
@@ -23,7 +27,7 @@ public class RegController {
     }
 
     @FXML
-    public void tryToReg(ActionEvent actionEvent) {
+    public void tryToReg() {
         String login = loginField.getText().trim();
         String password = passwordField.getText().trim();
         String nickname = nicknameField.getText().trim();
@@ -37,11 +41,29 @@ public class RegController {
             textArea.appendText("Логин пароль и никнейм не должны содержать пробелы\n");
             return;
         }
-
-        controller.registration(login, password, nickname);
+        if ( controller.isAuthenticated() ) {
+            if (!nicknameField.getText().equals(controller.getNickname()))
+                controller.registration("/ren", login, password, nickname);
+        }
+        else
+            controller.registration("/reg", login, password, nickname);
     }
 
     public void regResult(String msg) {
         textArea.appendText(msg + "\n");
+    }
+
+    public void close() {
+        // get a handle to the stage
+        Stage stage = (Stage) closeButton.getScene().getWindow();
+        // do what you have to do
+        stage.close();
+    }
+
+    public void setupWindow() {
+        regButton.setText(!controller.isAuthenticated()?"Регистрация":"Смена ника");
+        textArea.clear();
+        passwordField.clear();
+        nicknameField.setText(controller.getNickname());
     }
 }

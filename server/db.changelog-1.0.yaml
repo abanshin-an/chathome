@@ -1,0 +1,60 @@
+databaseChangeLog:
+  -
+  -  changeSet:
+       id: 1
+       author: a2n9
+       changes:
+         -  createTable:
+              tableName: user_data
+              columns:
+                -  column:
+                     name: id
+                     type: int
+                     autoIncrement: true
+                     constraints:
+                       primaryKey: true
+                       nullable: false
+                -  column:
+                     name:  login
+                     type:  varchar(50)
+                     constraints:
+                       nullable: false
+                -  column:
+                     name:  nick
+                     type:  varchar(50)
+                     constraints:
+                       nullable:  false
+                -  column:
+                     name:  password
+                     type:  varchar(50)
+                     constraints:
+                       nullable:  false
+
+  -  changeSet:
+       id: 2
+       author: a2n9
+       changes:
+         - insert:
+             tableName: user_data
+             columns:
+               - column:
+                   name: login
+                   value: qwe
+               - column:
+                   name: nick
+                   value: qwe
+               - column:
+                   name: password
+                   value: qwe
+         - insert:
+             tableName: user_data
+             columns:
+               - column:
+                   name: login
+                   value: asd
+               - column:
+                   name: nick
+                   value: asd
+               - column:
+                   name: password
+                   value: asd

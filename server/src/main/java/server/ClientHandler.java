@@ -31,7 +31,7 @@ public class ClientHandler {
                     // цикл аутентификации
                     while (true) {
                         String str = in.readUTF();
-
+                        System.out.println("u >" + str);
                         if (str.equals("/end")) {
                             sendMsg("/end");
                             System.out.println("Client disconnected");
@@ -49,7 +49,7 @@ public class ClientHandler {
                                     authenticated = true;
                                     break;
                                 } else {
-                                    sendMsg("С этим логином уже вошли");
+                                    sendMsg("С логином "+login+" уже вошли");
                                 }
                             } else {
                                 sendMsg("Неверный логин / пароль");
@@ -69,12 +69,14 @@ public class ClientHandler {
                             } else {
                                 sendMsg("/regno");
                             }
+
                         }
                     }
                     socket.setSoTimeout(0);
                     // цикл работы
                     while (authenticated) {
                         String str = in.readUTF();
+                        System.out.println("a >" + str);
 
                         if (str.startsWith("/")) {
                             if (str.equals("/end")) {
@@ -82,7 +84,27 @@ public class ClientHandler {
                                 System.out.println("Client disconnected");
                                 break;
                             }
-
+                            if (str.startsWith("/ren ")) {
+                                String[] token = str.split("\\s+");
+                                if (token.length < 4) {
+                                    sendMsg("/renno Неправильное количество аргументов "+str);
+                                    continue;
+                                }
+                                if (!login.equals(token[1])) {
+                                    sendMsg("/renno Для ника "+token[3]+" указан некорректный логин "+token[1]);
+                                    continue;
+                                }
+                                boolean regOk = server.getAuthService().
+                                        changeNick(token[1], token[2], token[3]);
+                                if (regOk) {
+                                    String oldNickname=nickname;
+                                    nickname=token[3];
+                                    sendMsg("/renok Ник "+oldNickname+" успешно изменен на "+nickname);
+                                    server.broadcastClientList();
+                                } else {
+                                    sendMsg("/renno Ник "+token[3]+" уже занят");
+                                }
+                            }
                             if (str.startsWith("/w")) {
                                 String[] token = str.split("\\s+", 3);
                                 if (token.length < 3) {
@@ -95,8 +117,7 @@ public class ClientHandler {
                         }
                     }
                     // SocketTimeoutException
-                } catch (SocketTimeoutException e)
-                {
+                } catch (SocketTimeoutException e) {
                     System.out.println("disconnect by timeout");
                     sendMsg("/end");
                 } catch (IOException e) {
