@@ -5,6 +5,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ClientHandler {
     public static final int SO_TIMEOUT = 120000;
@@ -13,11 +15,11 @@ public class ClientHandler {
     DataInputStream in;
     DataOutputStream out;
 
-    private boolean authenticated;
     private String nickname;
     private String login;
 
     public ClientHandler(Socket socket, Server server) {
+        ExecutorService es = Executors.newCachedThreadPool();
         try {
             this.socket = socket;
             this.server = server;
@@ -25,115 +27,153 @@ public class ClientHandler {
             in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
 
-            new Thread(() -> {
-                try {
-                    socket.setSoTimeout(SO_TIMEOUT);
-                    // цикл аутентификации
-                    while (true) {
-                        String str = in.readUTF();
-                        System.out.println("u >" + str);
-                        if (str.equals("/end")) {
-                            sendMsg("/end");
-                            System.out.println("Client disconnected");
-                            break;
-                        }
-                        if (str.startsWith("/auth ")) {
-                            String[] token = str.split("\\s+");
-                            nickname = server.getAuthService()
-                                    .getNicknameByLoginAndPassword(token[1], token[2]);
-                            login = token[1];
-                            if (nickname != null) {
-                                if (!server.isLoginAuthenticated(login)) {
-                                    sendMsg("/authok " + nickname);
-                                    server.subscribe(this);
-                                    authenticated = true;
-                                    break;
-                                } else {
-                                    sendMsg("С логином "+login+" уже вошли");
-                                }
-                            } else {
-                                sendMsg("Неверный логин / пароль");
-                            }
-                        }
+            es.execute(() -> serverThread(socket, server));
+            es.shutdown();
+            Thread.sleep(1000);
+        } catch (IOException e)  {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!es.isShutdown())
+            es.shutdownNow();
+    }
 
-                        if (str.startsWith("/reg ")) {
-                            String[] token = str.split("\\s+");
-                            if (token.length < 4) {
-                                continue;
-                            }
-
-                            boolean regOk = server.getAuthService().
-                                    registration(token[1], token[2], token[3]);
-                            if (regOk) {
-                                sendMsg("/regok");
-                            } else {
-                                sendMsg("/regno");
-                            }
-
-                        }
-                    }
-                    socket.setSoTimeout(0);
-                    // цикл работы
-                    while (authenticated) {
-                        String str = in.readUTF();
-                        System.out.println("a >" + str);
-
-                        if (str.startsWith("/")) {
-                            if (str.equals("/end")) {
-                                sendMsg("/end");
-                                System.out.println("Client disconnected");
-                                break;
-                            }
-                            if (str.startsWith("/ren ")) {
-                                String[] token = str.split("\\s+");
-                                if (token.length < 4) {
-                                    sendMsg("/renno Неправильное количество аргументов "+str);
-                                    continue;
-                                }
-                                if (!login.equals(token[1])) {
-                                    sendMsg("/renno Для ника "+token[3]+" указан некорректный логин "+token[1]);
-                                    continue;
-                                }
-                                boolean regOk = server.getAuthService().
-                                        changeNick(token[1], token[2], token[3]);
-                                if (regOk) {
-                                    String oldNickname=nickname;
-                                    nickname=token[3];
-                                    sendMsg("/renok Ник "+oldNickname+" успешно изменен на "+nickname);
-                                    server.broadcastClientList();
-                                } else {
-                                    sendMsg("/renno Ник "+token[3]+" уже занят");
-                                }
-                            }
-                            if (str.startsWith("/w")) {
-                                String[] token = str.split("\\s+", 3);
-                                if (token.length < 3) {
-                                    continue;
-                                }
-                                server.privateMsg(this, token[1], token[2]);
-                            }
-                        } else {
-                            server.broadcastMsg(this, str);
-                        }
-                    }
-                    // SocketTimeoutException
-                } catch (SocketTimeoutException e) {
-                    System.out.println("disconnect by timeout");
-                    sendMsg("/end");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    server.unsubscribe(this);
-                    try {
-                        socket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }).start();
+    private void serverThread(Socket socket, Server server) {
+        try {
+            if (authenticateClient(socket, server))
+                collaborateWithClient(server);
+            // SocketTimeoutException
+        } catch (SocketTimeoutException e) {
+            System.out.println("disconnect by timeout");
+            sendMsg("/end");
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            server.unsubscribe(this);
+            try {
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+    }
+
+    private boolean authenticateClient(Socket socket, Server server) throws IOException {
+        try {
+            socket.setSoTimeout(SO_TIMEOUT);
+            // цикл аутентификации
+            while (true) {
+                String str = in.readUTF();
+                System.out.println("u >" + str);
+                if (endCommand(str)) break;
+                if (authenticationCommand(server, str)) return true;
+                registrationCommand(server, str);
+            }
+            return false;
+        } finally {
+            socket.setSoTimeout(0);
+        }
+    }
+
+    private boolean authenticationCommand(Server server, String str) {
+        if (str.startsWith("/auth ")) {
+            String[] token = str.split("\\s+");
+            nickname = server.getAuthService()
+                    .getNicknameByLoginAndPassword(token[1], token[2]);
+            login = token[1];
+            if (nickname != null) {
+                if (!server.isLoginAuthenticated(login)) {
+
+                    sendMsg("/authok " + nickname);
+                    server.subscribe(this);
+                    return true;
+                } else {
+                    sendMsg("С логином " + login + " уже вошли");
+                }
+            } else {
+                sendMsg("Неверный логин / пароль");
+            }
+        }
+        return false;
+    }
+
+    private void registrationCommand(Server server, String str) {
+        if (str.startsWith("/reg ")) {
+            String[] token = str.split("\\s+");
+            if (token.length < 4) {
+                return;
+            }
+
+            boolean regOk = server.getAuthService().
+                    registration(token[1], token[2], token[3]);
+            if (regOk) {
+                sendMsg("/regok");
+            } else {
+                sendMsg("/regno");
+            }
+        }
+    }
+
+    private boolean endCommand(String str) {
+        if (str.equals("/end")) {
+            sendMsg("/end");
+            System.out.println("Client disconnected");
+            return true;
+        }
+        return false;
+    }
+
+    private void collaborateWithClient(Server server) throws IOException {
+        // цикл работы
+        while (!Thread.currentThread().isInterrupted()) {
+            String str = in.readUTF();
+            System.out.println("a >" + str);
+            if (str.startsWith("/")) {
+                if (endCommand(str))
+                    return;
+                if (renameNickCommand(server, str))
+                    continue;
+                privateMessageCommand(server, str);
+            } else {
+                server.broadcastMsg(this, str);
+            }
+        }
+    }
+
+    private void privateMessageCommand(Server server, String str) {
+        if (str.startsWith("/w")) {
+            String[] token = str.split("\\s+", 3);
+            if (token.length < 3) {
+                return;
+            }
+            server.privateMsg(this, token[1], token[2]);
+        }
+    }
+
+    private boolean renameNickCommand(Server server, String str) {
+        if (str.startsWith("/ren ")) {
+            String[] token = str.split("\\s+");
+            if (token.length < 4) {
+                sendMsg("/renno Неправильное количество аргументов " + str);
+                return true;
+            }
+            if (!login.equals(token[1])) {
+                sendMsg("/renno Для ника " + token[3] + " указан некорректный логин " + token[1]);
+                return true;
+            }
+            boolean regOk = server.getAuthService().
+                    changeNick(token[1], token[2], token[3]);
+            if (regOk) {
+                String oldNickname = nickname;
+                nickname = token[3];
+                sendMsg("/renok Ник " + oldNickname + " успешно изменен на " + nickname);
+                server.broadcastClientList();
+            } else {
+                sendMsg("/renno Ник " + token[3] + " уже занят");
+            }
+        }
+        return false;
     }
 
     public void sendMsg(String msg) {

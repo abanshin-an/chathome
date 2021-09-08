@@ -288,7 +288,6 @@ public class Controller implements Initializable {
         if (socket == null || socket.isClosed()) {
             connect();
         }
-
         try {
             out.writeUTF(msg);
         } catch (IOException e) {
