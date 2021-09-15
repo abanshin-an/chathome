@@ -4,17 +4,17 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class DbAuthService implements AuthService {
     /*mvn findbugs:findbugs
      * mvn org.liquibase:liquibase-maven-plugin:update
      * mvn liquibase:update
      */
-    public static final String SELECT_NICKNAME_FROM_USERS_WHERE_LOGIN_AND_PASSWORD = "select nickname from users where login=? and password = ?";
-    public static final String COUNT_FROM_USERS_WHERE_LOGIN_OR_NICKNAME = "select count(*) from users where login=? or nickname=?";
-    public static final String COUNT_FROM_USERS_WHERE_NICKNAME = "select count(*) from users where nickname=?";
-    public static final String INSERT_INTO_USERS_LOGIN_PASSWORD_NICKNAME_VALUES = "insert into users (login,password,nickname) values (?,?,?)";
-    public static final String UPDATE_USERS_SET_NICKNAME_WHERE_LOGIN_AND_PASSWORD = "update users set nickname = ? where login = ? and password=?";
+
+    private static final String SELECT_NICKNAME_FROM_USERS_WHERE_LOGIN_AND_PASSWORD = "select nickname from users where login=? and password = ?";
+    private static final String COUNT_FROM_USERS_WHERE_LOGIN_OR_NICKNAME = "select count(*) from users where login=? or nickname=?";
+    private static final String COUNT_FROM_USERS_WHERE_NICKNAME = "select count(*) from users where nickname=?";
+    private static final String INSERT_INTO_USERS_LOGIN_PASSWORD_NICKNAME_VALUES = "insert into users (login,password,nickname) values (?,?,?)";
+    private static final String UPDATE_USERS_SET_NICKNAME_WHERE_LOGIN_AND_PASSWORD = "update users set nickname = ? where login = ? and password=?";
     private final Connection connection;
 
     public DbAuthService(Connection connection) {

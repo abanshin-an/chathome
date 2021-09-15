@@ -19,7 +19,9 @@ public class RegController {
     @FXML
     private Button regButton;
 
-    @FXML private Button closeButton;
+    @FXML
+    private Button closeButton;
+
     private Controller controller;
 
     public void setController(Controller controller) {
@@ -41,6 +43,7 @@ public class RegController {
             textArea.appendText("Логин пароль и никнейм не должны содержать пробелы\n");
             return;
         }
+
         if ( controller.isAuthenticated() ) {
             if (!nicknameField.getText().equals(controller.getNickname()))
                 controller.registration("/ren", login, password, nickname);
@@ -61,7 +64,8 @@ public class RegController {
     }
 
     public void setupWindow() {
-        regButton.setText(!controller.isAuthenticated()?"Регистрация":"Смена ника");
+        regButton.setText(!controller.isAuthenticated() ? "Регистрация" : "Смена ника");
+
         textArea.clear();
         passwordField.clear();
         nicknameField.setText(controller.getNickname());
