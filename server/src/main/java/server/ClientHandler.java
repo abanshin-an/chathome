@@ -1,14 +1,18 @@
 package server;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class ClientHandler {
+    private static final Logger logger = LogManager.getLogger(ClientHandler.class);
+
     public static final int SO_TIMEOUT = 120000;
     Socket socket;
     Server server;
@@ -18,43 +22,33 @@ public class ClientHandler {
     private String nickname;
     private String login;
 
-    public ClientHandler(Socket socket, Server server) {
-        ExecutorService es = Executors.newCachedThreadPool();
+    public ClientHandler(Socket socket, Server server, ExecutorService es) {
         try {
             this.socket = socket;
             this.server = server;
-
             in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
-
             es.execute(() -> serverThread(socket, server));
-            es.shutdown();
-            Thread.sleep(1000);
         } catch (IOException e)  {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            logger.error("{ }",e);
         }
-        if (!es.isShutdown())
-            es.shutdownNow();
     }
 
     private void serverThread(Socket socket, Server server) {
         try {
             if (authenticateClient(socket, server))
                 collaborateWithClient(server);
-            // SocketTimeoutException
         } catch (SocketTimeoutException e) {
-            System.out.println("disconnect by timeout");
+            logger.error("disconnect by timeout");
             sendMsg("/end");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("{ }",e);
         } finally {
             server.unsubscribe(this);
             try {
                 socket.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("Unsubscribe exception ",e);
             }
         }
     }
@@ -65,7 +59,7 @@ public class ClientHandler {
             // цикл аутентификации
             while (true) {
                 String str = in.readUTF();
-                System.out.println("u >" + str);
+                logger.info("u > {}", str);
                 if (endCommand(str)) break;
                 if (authenticationCommand(server, str)) return true;
                 registrationCommand(server, str);
@@ -84,9 +78,9 @@ public class ClientHandler {
             login = token[1];
             if (nickname != null) {
                 if (!server.isLoginAuthenticated(login)) {
-
                     sendMsg("/authok " + nickname);
                     server.subscribe(this);
+                    logger.info("Client {} connected",nickname);
                     return true;
                 } else {
                     sendMsg("С логином " + login + " уже вошли");
@@ -95,6 +89,7 @@ public class ClientHandler {
                 sendMsg("Неверный логин / пароль");
             }
         }
+        logger.info("Client {} not connected",nickname);
         return false;
     }
 
@@ -108,6 +103,7 @@ public class ClientHandler {
             boolean regOk = server.getAuthService().
                     registration(token[1], token[2], token[3]);
             if (regOk) {
+                logger.info("Client {} registered",nickname);
                 sendMsg("/regok");
             } else {
                 sendMsg("/regno");
@@ -118,7 +114,7 @@ public class ClientHandler {
     private boolean endCommand(String str) {
         if (str.equals("/end")) {
             sendMsg("/end");
-            System.out.println("Client disconnected");
+            logger.info("Client {} disconnected",nickname);
             return true;
         }
         return false;
@@ -128,7 +124,6 @@ public class ClientHandler {
         // цикл работы
         while (!Thread.currentThread().isInterrupted()) {
             String str = in.readUTF();
-            System.out.println("a >" + str);
             if (str.startsWith("/")) {
                 if (endCommand(str))
                     return;
@@ -137,6 +132,8 @@ public class ClientHandler {
                 privateMessageCommand(server, str);
             } else {
                 server.broadcastMsg(this, str);
+                logger.info("broadcastMsg {}",str);
+
             }
         }
     }
@@ -148,6 +145,7 @@ public class ClientHandler {
                 return;
             }
             server.privateMsg(this, token[1], token[2]);
+            logger.info("privateMsg {}",str);
         }
     }
 
@@ -180,7 +178,7 @@ public class ClientHandler {
         try {
             out.writeUTF(msg);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("sendMsg exception ",e);
         }
     }
 

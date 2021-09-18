@@ -1,12 +1,19 @@
 package server;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server {
+    private static final Logger logger = LogManager.getLogger(Server.class);
+
     private static final int PORT = 8189;
 
     private final List<ClientHandler> clients;
@@ -16,17 +23,26 @@ public class Server {
         Socket socket;
         clients = new CopyOnWriteArrayList<>();
         this.authService = authService;
+        ExecutorService es = Executors.newCachedThreadPool();
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Server started!");
-
+            logger.info("Started");
             while (!Thread.currentThread().isInterrupted()) {
                 socket = serverSocket.accept();
-                System.out.println("Client connected");
-                new ClientHandler(socket, this);
+                logger.info("Client connected");
+                new ClientHandler(socket, this, es);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("{ }",e);
         }
+        es.shutdown();
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!es.isShutdown())
+            es.shutdownNow();
+        logger.info("Shutdown");
     }
 
     public void broadcastMsg(ClientHandler sender, String msg) {
